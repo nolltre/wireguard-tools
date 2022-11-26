@@ -1,0 +1,64 @@
+#!/usr/bin/awk -f
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (C) 2015-2020 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+# Awk version by Daniel Karmark, https://github.com/nolltre/
+
+BEGIN {
+    FS = "\t"
+    printf "{"
+    cmd = "wg show all dump"
+    while ( ( cmd | getline ) > 0 ) {
+        device = $1
+        if (device != last_device) {
+            if (last_device == "") { printf "\n" } else { printf "%s,\n", end }
+            last_device = device
+            private_key = $2
+            public_key = $3
+            listen_port = $4
+            fwmark = $5
+            printf "\t\"%s\": {", device
+            delim = "\n"
+            if (private_key != "(none)") { printf "%s\t\t\"privateKey\": \"%s\"", delim, private_key; delim=",\n" }
+            if (public_key != "(none)") { printf "%s\t\t\"publicKey\": \"%s\"", delim, public_key; delim=",\n" }
+            if (listen_port != "0") { printf "%s\t\t\"listenPort\": %u", delim, listen_port; delim=",\n" }
+            if (fw_mark != "(off)") { printf "%s\t\t\"fwmark\": %u", delim, fwmark; delim=",\n" }
+            printf "%s\t\t\"peers\": {", delim; end="\n\t\t}\n\t}"
+            delim="\n"
+        } else {
+            last_device = device
+            public_key = $2
+            preshared_key = $3
+            endpoint = $4
+            allowed_ips = $5
+            latest_handshake = $6
+            transfer_rx = $7
+            transfer_tx = $8
+            persistent_keepalive = $9
+            printf "%s\t\t\t\"%s\": {", delim, public_key
+            delim = "\n"
+            if (preshared_key != "(none)") { printf "%s\t\t\t\t\"presharedKey\": \"%s\"", delim, preshared_key; delim=",\n" }
+            if (endpoint != "(none)") { printf "%s\t\t\t\t\"endpoint\": \"%s\"", delim, endpoint; delim=",\n" }
+            if (latest_handshake != "0") { printf "%s\t\t\t\t\"latestHandshake\": %u", delim, latest_handshake; delim=",\n" }
+            if (transfer_rx != "0") { printf "%s\t\t\t\t\"transferRx\": %u", delim, transfer_rx; delim=",\n" }
+            if (transfer_tx != "0") { printf "%s\t\t\t\t\"transferTx\": %u", delim, transfer_tx; delim=",\n" }
+            if (persistent_keepalive != "off") { printf "%s\t\t\t\t\"persistentKeepalive\": %u", delim, persistent_keepalive; delim=",\n" }
+            printf "%s\t\t\t\t\"allowedIps\": [", delim
+            delim = "\n"
+            if (allowed_ips != "(none)") {
+                split(allowed_ips, ip_list, ",")
+                for (i=1; i<=length(ip_list); i++) {
+                    printf "%s\t\t\t\t\t\"%s\"", delim, ip_list[i]
+                    delim=",\n"
+                }
+                delim="\n"
+            }
+            printf "%s\t\t\t\t]", delim
+            printf "\n\t\t\t}"
+            delim = ",\n"
+        }
+    }
+    printf "%s\n", end
+    printf "}\n"
+    close(cmd)
+}
